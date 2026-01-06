@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Lab</title>
+    <style>
+        :root { --primary: #6366f1; --bg: #f8fafc; --text: #1e293b; --success: #059669; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); width: 480px; }
+        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #f1f5f9; border-radius: 12px; background: #fff; position: relative; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; }
+        input:focus { outline: none; border-color: var(--primary); }
+        .binary-text { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--success); background: #f0fdf4; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #dcfce7; word-break: break-all; }
+        .color-preview { height: 100px; width: 100%; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.4); margin-top: 10px; border: 1px solid rgba(0,0,0,0.1); }
+        .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        button { padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.8rem; transition: opacity 0.2s; }
+        .btn-primary { background: var(--primary); color: white; flex: 2; }
+        .btn-clear { background: #fee2e2; color: #991b1b; flex: 1; }
+        .history-item { font-family: monospace; font-size: 0.7rem; padding: 5px 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; }
+        .cidr-badge { position: absolute; top: 15px; right: 15px; background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+        footer { margin-top: 25px; font-weight: 600; color: #94a3b8; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 style="text-align:center; margin-top:0; font-size: 2rem;">My Lab</h1>
+
+    <div class="section">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div><label>Decimal</label><input type="number" id="decIn" oninput="sync('dec')"></div>
+            <div><label>Hex</label><input type="text" id="hexIn" oninput="sync('hex')"></div>
+        </div>
+        <label>Binary Representation</label>
+        <div id="binOut" class="binary-text">0000 0000</div>
+    </div>
+
+    <div class="section">
+        <span id="cidrOut" class="cidr-badge">/0</span>
+        <label>IP Address / Subnet Mask</label>
+        <input type="text" id="ipIn" placeholder="255.255.255.0" oninput="sync('ip')">
+    </div>
+
+    <div class="section">
+        <label>Color Name or Picker</label>
+        <div class="btn-group">
+            <input type="text" id="nameIn" placeholder="SkyBlue" oninput="sync('name')" style="margin:0;">
+            <input type="color" id="picker" oninput="sync('picker')" style="width:60px; height:42px; padding:2px; cursor:pointer;">
+        </div>
+        <button class="btn-primary" style="width:100%" onclick="randomColor()">🎲 Random Color</button>
+        <div id="display" class="color-preview" style="background-color: #6366f1;">
+            <div id="hexLabel" style="font-size: 1.4rem;">#6366F1</div>
+            <div id="rgbLabel" style="font-size: 0.8rem; opacity: 0.9;">RGB(99, 102, 241)</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label style="margin:0;">History</label>
+            <button class="btn-clear" onclick="clearHistory()">Clear</button>
+        </div>
+        <div id="historyLog" style="max-height: 100px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+<footer>Made by Rwin</footer>
+
+<script>
+    const el = (id) => document.getElementById(id);
+
+    function sync(source) {
+        let val = 0;
+        if (source === 'dec') val = parseInt(el('decIn').value) || 0;
+        if (source === 'hex') val = parseInt(el('hexIn').value, 16) || 0;
+        if (source === 'picker') val = parseInt(el('picker').value.substring(1), 16);
+        if (source === 'name') {
+            const hex = nameToHex(el('nameIn').value);
+            if (hex) val = parseInt(hex.substring(1), 16); else return;
+        }
+        if (source === 'ip') {
+            const parts = el('ipIn').value.split('.');
+            if (parts.length === 4) {
+                val = parts.reduce((acc, octet) => (acc << 8) + (parseInt(octet) || 0), 0) >>> 0;
+            } else return;
+        }
+        updateUI(val, source);
+    }
+
+    function updateUI(val, source) {
+        val = val >>> 0; // Ensure unsigned 32-bit
+        
+        if (source !== 'dec') el('decIn').value = val;
+        const hex = val.toString(16).toUpperCase().padStart(6, '0');
+        if (source !== 'hex') el('hexIn').value = hex;
+
+        // Binary & CIDR Calculation
+        let bin = val.toString(2).padStart(8, '0');
+        el('binOut').innerText = (bin.match(/.{1,4}/g) || [bin]).join(" ");
+        
+        // CIDR notation: Count leading ones
+        const cidr = bin.padStart(32, '0').split('0')[0].length; 
+        el('cidrOut').innerText = `/${cidr}`;
+
+        // IP Display
+        if (source !== 'ip') {
+            el('ipIn').value = [ (val>>>24)&255, (val>>>16)&255, (val>>>8)&255, val&255 ].join('.');
+        }
+
+        // Color Display Logic
+        const color = "#" + hex.slice(-6);
+        el('display').style.backgroundColor = color;
+        el('hexLabel').innerText = color;
+        const r=(val>>>16)&255, g=(val>>>8)&255, b=val&255;
+        el('rgbLabel').innerText = `RGB(${r}, ${g}, ${b})`;
+        if (source !== 'picker') el('picker').value = color.toLowerCase();
+
+        addToLog(val, color);
+    }
+
+    function nameToHex(n) {
+        let t = document.createElement("div"); t.style.color = n; document.body.appendChild(t);
+        let s = window.getComputedStyle(t).color; document.body.removeChild(t);
+        let m = s.match(/\d+/g);
+        return m ? "#" + m.map(x => parseInt(x).toString(16).padStart(2, '0')).join("") : null;
+    }
+
+    function randomColor() { updateUI(Math.floor(Math.random()*16777215), 'random'); }
+    
+    function addToLog(d, h) {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `<span>${h}</span><span>${d}</span>`;
+        el('historyLog').prepend(item);
+        if (el('historyLog').children.length > 15) el('historyLog').lastChild.remove();
+    }
+
+    function clearHistory() { el('historyLog').innerHTML = ''; }
+
+    // Initial state
+    updateUI(6514417, 'init'); 
+</script>
+</body>
+</html>
